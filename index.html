@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Solar Map</title>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css" rel="stylesheet" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet" />
+
+  <style>
+  body {
+  margin: 0;
+  font-family: Arial;
+}
+
+.mapboxgl-ctrl-top-right {
+  top: 0 !important;
+  right: 10px !important;
+}
+
+.mapboxgl-ctrl-top-right .mapboxgl-ctrl-group {
+  margin-top: 10px;
+}
+
+#map {
+  width: 100%;
+  height: 100vh;
+}
+
+#searchBox {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  z-index: 10;
+  width: 250px;
+}
+
+#hint {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+#panel {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  display: none;
+  z-index: 10;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+#controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.active {
+  background: #007AFF;
+  color: white;
+}
+
+.inactive {
+  background: #E5E5EA;
+  color: black;
+}
+
+.mapboxgl-ctrl-bottom-right {
+  bottom: 20px !important;
+  right: 20px;
+}
+  </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div id="searchBox"></div>
+
+<div id="hint">Klikni na střechu</div>
+
+<div id="panel">
+  <div id="output"></div>
+  <button onclick="sendLead()">👉 Získat nabídku zdarma</button>
+</div>
+
+<div id="controls">
+  <button onclick="resetAll()">🗑️ SMAZAT</button>
+  <button 
+ <button id="autoBtn" onclick="setMode('auto')">AUTO</button>
+<button id="manualBtn" onclick="setMode('manual')">MANUÁL</button>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiZXJka2VuZXJneSIsImEiOiJjbW8xYzQ0bm0wZmoxMnBxdGEwOGJjYmQwIn0.74wjBVxI__L0gy_4fZeI4w';
+let lastData = null;
+let lastAddress = null;
+let mode = 'manual';
+
+console.clear();
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/satellite-streets-v12',
+  center: [15.2, 50.0],
+  zoom: 12
+});
+
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: {
+    polygon: true,
+    trash: false
+  }
+});
+
+map.addControl(draw);
+const nav = new mapboxgl.NavigationControl();
+map.addControl(nav, 'bottom-right');
+
+const geocoder = new MapboxGeocoder({
+  accessToken: mapboxgl.accessToken,
+  mapboxgl: mapboxgl
+});
+
+document.getElementById('searchBox').appendChild(geocoder.onAdd(map));
+
+function resetAll() {
+  draw.deleteAll();
+  lastData = null;
+  lastAddress = null;
+  document.getElementById("panel").style.display = "none";
+}
+
+function setMode(selected) {
+  mode = selected;
+  resetAll();
+
+  const autoBtn = document.getElementById("autoBtn");
+  const manualBtn = document.getElementById("manualBtn");
+
+  if (mode === "auto") {
+    autoBtn.classList.add("active");
+    autoBtn.classList.remove("inactive");
+
+    manualBtn.classList.add("inactive");
+    manualBtn.classList.remove("active");
+  } else {
+    manualBtn.classList.add("active");
+    manualBtn.classList.remove("inactive");
+
+    autoBtn.classList.add("inactive");
+    autoBtn.classList.remove("active");
+  }
+}
+
+map.on('click', (e) => {
+  if (mode !== 'auto') return;
+
+  resetAll();
+
+  const lng = e.lngLat.lng;
+  const lat = e.lngLat.lat;
+
+  fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`)
+    .then(res => res.json())
+    .then(data => {
+      lastAddress = data.features?.[0]?.place_name || "nezjištěno";
+      updateArea();
+    });
+
+  const size = 0.0003;
+
+  const square = {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [lng - size, lat - size],
+        [lng + size, lat - size],
+        [lng + size, lat + size],
+        [lng - size, lat + size],
+        [lng - size, lat - size]
+      ]]
+    }
+  };
+
+  const id = draw.add(square)[0];
+  draw.changeMode('direct_select', { featureId: id });
+});
+
+map.on('draw.update', updateArea);
+map.on('draw.create', updateArea);
+
+function updateArea() {
+  const data = draw.getAll();
+  if (!data.features.length) return;
+
+  const area = turf.area(data);
+  const m2 = Math.round(area);
+
+  const production = m2 * 180 * 0.75;
+  const money = Math.round(production * 5);
+  const returnYears = (m2 * 5000) / money;
+
+  document.getElementById("panel").style.display = "block";
+
+  document.getElementById("output").innerHTML = `
+    <b>Výsledek</b><br><br>
+    Plocha: ${m2} m²<br>
+    Výroba: ${Math.round(production)} kWh<br>
+    Úspora: ${money} Kč<br>
+    Návratnost: ${returnYears.toFixed(1)} let
+  `;
+
+  lastData = { m2, production, money };
+}
+
+async function sendLead() {
+  const email = prompt("Zadej svůj email:");
+  if (!email) return;
+
+  if (!lastAddress) {
+    const center = map.getCenter();
+
+    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${center.lng},${center.lat}.json?access_token=${mapboxgl.accessToken}`);
+    const data = await res.json();
+
+    if (data.features && data.features.length > 0) {
+      lastAddress = data.features[0].place_name;
+    } else {
+      lastAddress = "nezjištěno";
+    }
+  }
+
+  fetch("https://script.google.com/macros/s/AKfycbyLSOLWuePP25K3ttcvjOREspCMnu3rYQdwv6IiJgHu7e5gD8jj2CMR9egMoPZE-osf/exec", {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify({
+      email: email,
+      address: lastAddress,
+      area: lastData.m2,
+      production: lastData.production,
+      savings: lastData.money
+    })
+  });
+
+  alert("Díky! Ozveme se.");
+}
+setMode('manual');
+</script>
+
+</body>
+</html>
