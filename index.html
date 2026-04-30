@@ -282,6 +282,11 @@ function updateArea() {
     production,
     money
   };
+
+  setTimeout(() => {
+  alert("⚡ Tvoje střecha může vydělávat až " + money + " Kč ročně");
+}, 500);
+
 }
 
 async function sendLead() {
@@ -324,7 +329,7 @@ function nextStep() {
   const text = document.getElementById("guideText");
 
   if (step === 2) {
-    text.innerHTML = "Krok 2: Klikni na střechu domu";
+    text.innerHTML = "Krok 2: Klikni nebo nakresli střechu svého domu";
 
     // 👉 zapni AUTO mód
     setMode('auto');
