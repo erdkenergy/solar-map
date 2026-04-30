@@ -148,6 +148,19 @@ MANUÁL
 
 <div id="panel">
   <div id="output"></div>
+
+  <button onclick="calculateNow()" style="
+  margin-top:10px;
+  background:#007AFF;
+  color:white;
+  border:none;
+  padding:10px;
+  border-radius:8px;
+  cursor:pointer;
+">
+  ⚡ Spočítat potenciál
+</button>
+
   <button onclick="sendLead()" style="margin-top:10px;">
     👉 Získat nabídku zdarma
   </button>
@@ -256,7 +269,7 @@ function updateArea() {
   const money = Math.round(production * 5);
   const returnYears = (m2 * 5000) / money;
 
-  document.getElementById("panel").style.display = "block";
+  document.getElementById("panel").style.display = "none";
 
   document.getElementById("output").innerHTML = `
   <div style="font-size:18px;font-weight:bold;margin-bottom:10px;">
