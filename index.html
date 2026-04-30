@@ -117,6 +117,34 @@ MANUÁL
 </div>
 
 <div id="hint">Klikni na střechu</div>
+<div id="guide" style="
+  position:absolute;
+  top:80px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.8);
+  color:white;
+  padding:15px 20px;
+  border-radius:12px;
+  font-family:Arial;
+  z-index:20;
+  text-align:center;
+">
+  <div id="guideText" style="margin-bottom:10px;">
+    Krok 1: Vyhledej svůj dům nebo se přibliž na mapě
+  </div>
+
+  <button onclick="nextStep()" style="
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    background:#007AFF;
+    color:white;
+    cursor:pointer;
+  ">
+    Další
+  </button>
+</div>
 
 <div id="panel">
   <div id="output"></div>
@@ -231,7 +259,11 @@ function updateArea() {
   document.getElementById("panel").style.display = "block";
 
   document.getElementById("output").innerHTML = `
-    <div style="font-family: Arial; line-height:1.5;">
+  <div style="font-size:18px;font-weight:bold;margin-bottom:10px;">
+    ⚡ Tvůj dům může vydělávat
+  </div>
+
+  <div style="font-family: Arial; line-height:1.5;">
       <b>Výsledek</b><br><br>
 
       Plocha: <b>${m2} m²</b><br>
@@ -293,6 +325,12 @@ function nextStep() {
 
   if (step === 2) {
     text.innerHTML = "Krok 2: Klikni na střechu domu";
+
+    // 👉 zapni AUTO mód
+    setMode('auto');
+
+    // 👉 změň hint
+    document.getElementById("hint").innerText = "Klikni na střechu domu";
   }
 
   else if (step === 3) {
@@ -301,6 +339,9 @@ function nextStep() {
 
   else {
     document.getElementById("guide").style.display = "none";
+
+    // 👉 onboarding zmizí
+    document.getElementById("hint").innerText = "Hotovo ✔️";
   }
 }
 </script>
